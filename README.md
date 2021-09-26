@@ -14,6 +14,8 @@ keras == 2.4.3
 
 下载路径：https://blog.csdn.net/Twilight737?spm=1018.2226.3001.5343&type=download
 
+Annotations、JPEGImages数据集下载：https://blog.csdn.net/Twilight737?spm=1018.2226.3001.5343&type=download
+
 第1步：运行annotation.py，划分数据集写入model_data/txt；
 
 第2步：运行train.py，搭建YOLOv3模型，进行训练；
