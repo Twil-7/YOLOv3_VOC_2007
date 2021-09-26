@@ -1,0 +1,74 @@
+1、我找到之前v3权重老是加载不匹配的原因了，不同版本python转换过来的yolo.h5不能通用。
+
+如果拿python 3.8解码，但是用python 3.6运行，就会权重完全读取不了......
+
+/home/zk/anaconda3/envs/y3/lib/python3.6/site-packages/keras/engine/topology.py:3462: UserWarning: Skipping loading of weights for layer conv2d_1 due to mismatch in shape ((3, 3, 3, 32) vs (64, 32, 3, 3)).
+  weight_values[i].shape))
+/home/zk/anaconda3/envs/y3/lib/python3.6/site-packages/keras/engine/topology.py:3462: UserWarning: Skipping loading of weights for layer batch_normalization_1 due to mismatch in shape ((32,) vs (64,)).
+  weight_values[i].shape))
+/home/zk/anaconda3/envs/y3/lib/python3.6/site-packages/keras/engine/topology.py:3462: UserWarning: Skipping loading of weights for layer conv2d_2 due to mismatch in shape ((3, 3, 32, 64) vs (32, 64, 1, 1)).
+  weight_values[i].shape))
+/home/zk/anaconda3/envs/y3/lib/python3.6/site-packages/keras/engine/topology.py:3462: UserWarning: Skipping loading of weights for layer batch_normalization_2 due to mismatch in shape ((64,) vs (32,)).
+  weight_values[i].shape))
+/home/zk/anaconda3/envs/y3/lib/python3.6/site-packages/keras/engine/topology.py:3462: UserWarning: Skipping loading of weights for layer conv2d_3 due to mismatch in shape ((1, 1, 64, 32) vs (64, 32, 3, 3)).
+  weight_values[i].shape))
+/home/zk/anaconda3/envs/y3/lib/python3.6/site-packages/keras/engine/topology.py:3462: UserWarning: Skipping loading of weights for layer batch_normalization_3 due to mismatch in shape ((32,) vs (64,)).
+  weight_values[i].shape))
+/home/zk/anaconda3/envs/y3/lib/python3.6/site-packages/keras/engine/topology.py:3462: UserWarning: Skipping loading of weights for layer conv2d_4 due to mismatch in shape ((3, 3, 32, 64) vs (128, 64, 3, 3)).
+....................
+
+
+2、在仅仅使用3000张VOC数据做训练后，val loss最低可降低到21附近，之后val loss再也无法降低。
+但令人惊艳的是，此时测试集检测效果极佳，甚至优于之前我跑的YOLOv4，真是活见鬼了...另外教训就是，再也别乱改别人的损失函数，事实证明，正是我看不懂的那个部分，对模型检测效果提升，作用巨大！！！！！
+
+
+3、python 3.8版本的conda，报错：AttributeError: module 'keras.backend' has no attribute 'control_flow_ops'
+
+解决办法：https://blog.csdn.net/qq_38835585/article/details/106051940
+
+Keras本身是在TensorFlow基础上构建的高层API，也就是说我们使用的control_flow_ops本身就是Keras调用TF的函数，现在Keras没办法调用control_flow_ops，那就直接用TF调用呗，没有必要降Keras版本。
+
+ _, ignore_mask = K.control_flow_ops.while_loop(lambda b,*args: b<m, loop_body, [0, ignore_mask])
+改为： _, ignore_mask = tf.while_loop(lambda b,*args: b<m, loop_body, [0, ignore_mask])
+
+其实所有的AttributeError问题，基本都是版本更新导致的，没有必要一遇到这种问题就回调版本，新版本做出的调整（删除或者修改一个函数的调用）一定是有他的理由的，最好的解决方法肯定不是回调版本。
+
+
+
+4、解码报错：
+
+original_keras_version = f.attrs['keras_version'].decode('utf8')
+AttributeError: 'str' object has no attribute 'decode'
+
+解决办法：https://blog.csdn.net/zhao_5352269/article/details/102972127
+
+解决：修改源码，python3里面，字符串要先encode手动指定其为某一编码的字节码之后，才能decode解码。
+改为： f.attrs['backend'].encode('utf8').decode('utf8')
+
+
+5、opencv报错：
+
+cv2.error: OpenCV(4.5.2) /tmp/pip-req-build-dtcwvmq9/opencv/modules/imgproc/src/color.simd_helpers.hpp:94: error: (-2:Unspecified error) in function 'cv::impl::{anonymous}::CvtHelper<VScn, VDcn, VDepth, sizePolicy>::CvtHelper(cv::InputArray, cv::OutputArray, int) [with VScn = cv::impl::{anonymous}::Set<3, 4>; VDcn = cv::impl::{anonymous}::Set<3, 4>; VDepth = cv::impl::{anonymous}::Set<0, 2, 5>; cv::impl::{anonymous}::SizePolicy sizePolicy = cv::impl::<unnamed>::NONE; cv::InputArray = const cv::_InputArray&; cv::OutputArray = const cv::_OutputArray&]'
+> Unsupported depth of input image:
+>     'VDepth::contains(depth)'
+> where
+>     'depth' is 6 (CV_64F)
+
+
+出现这种报错，是因为加载的图像格式是float64，需要转化为float32。
+image = image.astype(np.float32)
+
+opencv在读取numpy arr 时容易报错是'depth' is 6 (CV_64F)，
+这个原因是因为numpy array float类型默认为64位，而opencv不能正常读取64位，可以读取float32位，
+因此，需要将numpy数组转化为float32位代替。
+
+
+6、我终于知道为什么这次YOLOv3的loss始终降低不下来了。
+
+因为借助random随机增强操作后，图片做了放缩、平移变换，此时有可能图片就是不再含有目标物体，或者连人眼都难以处理。对于这种情况算法无法准确检测出来当然很正常，这些情况永远是无法被训练的，因此此时造成的loss自然不可能降低得下来！！！
+
+
+7、训练过程中，我发现了自适应学习率调整的重要性。
+
+之前我一直拿1e-3和1e-4的学习率去训练，总是会出现瓶颈，val loss出现无法下降的情况。而如果借用自适应学习率，val loss总能保证缓慢下降，训练效果比之前好很多。
+

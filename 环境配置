@@ -1,0 +1,14 @@
+python == 3.8
+tensorflow == 2.4.1
+keras == 2.4.3
+
+如果要切换到python 3.6版本进行训练，需要修改该句语法：
+
+ _, ignore_mask = K.control_flow_ops.while_loop(lambda b,*args: b<m, loop_body, [0, ignore_mask])
+ _, ignore_mask = tf.while_loop(lambda b,*args: b<m, loop_body, [0, ignore_mask])
+
+
+download的原始权重有两个版本，其中一个为python 3.8版本，另外一个是python 3.6版本，要对应版本导入。
+
+
+val loss在adam自适应调节下，训练loss最低可降至23.4附近。
