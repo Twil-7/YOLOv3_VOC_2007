@@ -20,7 +20,7 @@ Annotations、JPEGImages数据集下载：https://blog.csdn.net/Twilight737?spm=
 
 第2步：运行train.py，搭建YOLOv3模型，进行训练；
 
-第3步：yolo_predict.py，调用训练好的权重文件，进行目标检测。
+第3步：运行yolo_predict.py，调用训练好的权重文件，进行目标检测。
 
 该代码稍做修改也可在python 3.6版本下运行，如果要切换到python 3.6版本进行训练，需要修改该句语法：
 
